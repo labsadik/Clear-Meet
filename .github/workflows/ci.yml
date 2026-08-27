@@ -18,6 +18,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Format source
         run: npx prettier --write .
+      - name: Auto-fix lint issues
+        run: npx eslint . --fix
       - name: Lint
         run: npm run lint
       - name: Production build
