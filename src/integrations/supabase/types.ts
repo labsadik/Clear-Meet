@@ -14,16 +14,252 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      meeting_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          meeting_id: string
+          metadata: Json
+          target_user_id: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          meeting_id: string
+          metadata?: Json
+          target_user_id?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          meeting_id?: string
+          metadata?: Json
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_events_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_events_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_messages: {
+        Row: {
+          created_at: string
+          id: string
+          meeting_id: string
+          message: string
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meeting_id: string
+          message: string
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          message?: string
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_messages_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_participants: {
+        Row: {
+          admitted_at: string | null
+          created_at: string
+          id: string
+          joined_at: string | null
+          left_at: string | null
+          meeting_id: string
+          role: Database["public"]["Enums"]["participant_role"]
+          status: Database["public"]["Enums"]["participant_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admitted_at?: string | null
+          created_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          meeting_id: string
+          role?: Database["public"]["Enums"]["participant_role"]
+          status?: Database["public"]["Enums"]["participant_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admitted_at?: string | null
+          created_at?: string
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          meeting_id?: string
+          role?: Database["public"]["Enums"]["participant_role"]
+          status?: Database["public"]["Enums"]["participant_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_participants_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          host_id: string
+          id: string
+          public_slug: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["meeting_status"]
+          title: string
+          updated_at: string
+          videosdk_meeting_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          host_id: string
+          id?: string
+          public_slug: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["meeting_status"]
+          title: string
+          updated_at?: string
+          videosdk_meeting_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string
+          id?: string
+          public_slug?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["meeting_status"]
+          title?: string
+          updated_at?: string
+          videosdk_meeting_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_meeting_admitted: {
+        Args: { _meeting_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_meeting_member: {
+        Args: { _meeting_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_meeting_moderator: {
+        Args: { _meeting_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      meeting_status: "scheduled" | "active" | "ended" | "cancelled"
+      participant_role: "host" | "co_host" | "participant"
+      participant_status:
+        | "waiting"
+        | "admitted"
+        | "rejected"
+        | "left"
+        | "removed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +386,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      meeting_status: ["scheduled", "active", "ended", "cancelled"],
+      participant_role: ["host", "co_host", "participant"],
+      participant_status: [
+        "waiting",
+        "admitted",
+        "rejected",
+        "left",
+        "removed",
+      ],
+    },
   },
 } as const
