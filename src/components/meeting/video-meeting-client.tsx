@@ -24,12 +24,7 @@ type ParticipantRow = {
   meeting_id: string;
   user_id: string;
   role: "host" | "co_host" | "participant";
-  status:
-    | "waiting"
-    | "admitted"
-    | "rejected"
-    | "left"
-    | "removed";
+  status: "waiting" | "admitted" | "rejected" | "left" | "removed";
   joined_at: string | null;
   profiles?: {
     display_name: string;
@@ -98,6 +93,7 @@ function MeetingSession({
   const [text, setText] = useState("");
   const [people, setPeople] = useState<ParticipantRow[]>([]);
   const [copied, setCopied] = useState(false);
+  const [sdkJoined, setSdkJoined] = useState(false);
   const [joinError, setJoinError] = useState("");
   const [timedOut, setTimedOut] = useState(false);
   const initialDevicesApplied = useRef(false);
@@ -106,13 +102,16 @@ function MeetingSession({
     meetingState,
     toggleMic,
     toggleWebcam,
+    enableScreenShare,
   } = useMeeting({
     onMeetingJoined: () => {
+      setSdkJoined(true);
       setJoinError("");
       setTimedOut(false);
       console.log("[VideoSDK] meeting joined");
     },
     onMeetingLeft: () => {
+      setSdkJoined(false);
       console.log("[VideoSDK] meeting left");
     },
     onError: (error) => {
@@ -120,12 +119,14 @@ function MeetingSession({
       setJoinError(
         error instanceof Error
           ? error.message
-          : "Could not join the meeting.",
+          : "Could not connect to the video meeting.",
       );
     },
   });
 
-  const joined = meetingState === "JOINED";
+  const joined = sdkJoined;
+  const connecting = !sdkJoined &&
+    (meetingState === "JOINING" || meetingState === "IDLE");
 
   useEffect(() => {
     if (joined || joinError) return;
@@ -145,24 +146,19 @@ function MeetingSession({
 
     initialDevicesApplied.current = true;
 
-    const enableInitialDevices = async () => {
+    const applyInitialDevices = async () => {
       try {
-        if (initialMicEnabled) {
-          await toggleMic();
-        }
-
-        if (initialWebcamEnabled) {
-          await toggleWebcam();
-        }
+        if (initialMicEnabled) await toggleMic();
+        if (initialWebcamEnabled) await toggleWebcam();
       } catch (error) {
         console.error(
-          "[VideoSDK] Could not enable selected pre-join devices:",
+          "[VideoSDK] Could not enable selected devices:",
           error,
         );
       }
     };
 
-    void enableInitialDevices();
+    void applyInitialDevices();
   }, [
     joined,
     initialMicEnabled,
@@ -243,7 +239,9 @@ function MeetingSession({
         message: value,
       });
 
-    if (error) console.error("[Meeting Chat] Failed to send:", error);
+    if (error) {
+      console.error("[Meeting Chat] Failed to send:", error);
+    }
   };
 
   const admit = async (id: string) => {
@@ -285,6 +283,14 @@ function MeetingSession({
       });
   };
 
+  const statusText = joinError
+    ? "Could not connect"
+    : timedOut
+      ? "Connection timed out"
+      : connecting
+        ? "Connecting"
+        : "Preparing";
+
   if (!joined) {
     return (
       <div className="meeting-page">
@@ -300,25 +306,18 @@ function MeetingSession({
         <main className="meeting-main">
           <div className="card narrow">
             <div className="eyebrow">
-              {joinError
-                ? "VIDEO ERROR"
-                : meetingState === "JOINING"
-                  ? "CONNECTING"
-                  : "PREPARING"}
+              {joinError || timedOut ? "VIDEO ERROR" : statusText.toUpperCase()}
             </div>
-
             <h1>
               {joinError || timedOut
                 ? "Could not connect to meeting"
-                : "Joining meeting…"}
+                : "Connecting to meeting…"}
             </h1>
-
             <p className="muted">
               {joinError || timedOut
                 ? joinError
-                : "You can join without camera or microphone access. The room is entered first; devices are enabled separately."}
+                : "The meeting is entered independently of your camera and microphone. You can turn devices on after joining."}
             </p>
-
             <div className="actions" style={{ marginTop: 14 }}>
               <button
                 className="button primary"
@@ -379,11 +378,7 @@ function MeetingSession({
           <div className="meeting-row">
             <h2>People</h2>
             <span className="badge">
-              {
-                people.filter(
-                  (person) => person.status === "admitted",
-                ).length
-              } admitted
+              {people.filter((person) => person.status === "admitted").length} admitted
             </span>
           </div>
 
@@ -391,7 +386,6 @@ function MeetingSession({
             people.some((person) => person.status === "waiting") && (
               <div style={{ marginTop: 14 }}>
                 <div className="eyebrow">WAITING</div>
-
                 {people
                   .filter((person) => person.status === "waiting")
                   .map((person) => (
@@ -406,11 +400,7 @@ function MeetingSession({
                       <span>
                         {person.profiles?.display_name || "Guest"}
                       </span>
-
-                      <div
-                        className="actions"
-                        style={{ marginTop: 0 }}
-                      >
+                      <div className="actions" style={{ marginTop: 0 }}>
                         <button
                           className="button primary"
                           onClick={() => void admit(person.id)}
@@ -445,8 +435,7 @@ function MeetingSession({
                   key={message.id}
                   style={{ fontSize: 13, padding: "4px 0" }}
                 >
-                  <b>{message.profiles?.display_name || "Guest"}</b>:{" "}
-                  {message.message}
+                  <b>{message.profiles?.display_name || "Guest"}</b>: {message.message}
                 </div>
               ))}
             </div>
@@ -475,6 +464,9 @@ function MeetingSession({
 
       <MeetingControls
         joined={joined}
+        toggleMic={toggleMic}
+        toggleWebcam={toggleWebcam}
+        enableScreenShare={enableScreenShare}
         onLeave={onLeave}
       />
     </div>
@@ -482,24 +474,18 @@ function MeetingSession({
 }
 
 function VideoStage() {
-  const { participants, meetingState } = useMeeting();
+  const { participants } = useMeeting();
   const ids = useMemo(
     () => Array.from(participants.keys()),
     [participants],
   );
-
-  if (meetingState !== "JOINED") {
-    return <div className="video-grid" />;
-  }
 
   if (ids.length === 0) {
     return (
       <div className="video-grid">
         <div className="video-tile">
           <div className="avatar-fallback">You</div>
-          <span className="tile-label">
-            You are the first person here
-          </span>
+          <span className="tile-label">You are the first person here</span>
         </div>
       </div>
     );
@@ -508,20 +494,13 @@ function VideoStage() {
   return (
     <div className="video-grid">
       {ids.map((id) => (
-        <ParticipantTile
-          key={id}
-          participantId={id}
-        />
+        <ParticipantTile key={id} participantId={id} />
       ))}
     </div>
   );
 }
 
-function ParticipantTile({
-  participantId,
-}: {
-  participantId: string;
-}) {
+function ParticipantTile({ participantId }: { participantId: string }) {
   const {
     webcamStream,
     webcamOn,
@@ -598,19 +577,18 @@ function ParticipantTile({
 
 function MeetingControls({
   joined,
+  toggleMic,
+  toggleWebcam,
+  enableScreenShare,
   onLeave,
 }: {
   joined: boolean;
+  toggleMic: () => Promise<unknown>;
+  toggleWebcam: () => Promise<unknown>;
+  enableScreenShare: () => Promise<unknown>;
   onLeave: () => Promise<void>;
 }) {
-  const {
-    toggleMic,
-    toggleWebcam,
-    enableScreenShare,
-    micOn,
-    webcamOn,
-  } = useMeeting();
-
+  const { micOn, webcamOn } = useMeeting();
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -622,7 +600,7 @@ function MeetingControls({
     try {
       await Promise.resolve(fn());
     } catch (error) {
-      console.error("[VideoSDK] Media action failed:", error);
+      console.error("[VideoSDK] media action failed:", error);
     } finally {
       setBusy(false);
     }
@@ -633,7 +611,7 @@ function MeetingControls({
       <button
         disabled={!joined || busy}
         className={`control ${micOn ? "active" : ""}`}
-        title={joined ? "Microphone" : "Joining meeting…"}
+        title="Microphone"
         onClick={() => void action(() => toggleMic())}
       >
         {micOn ? <Mic size={19} /> : <MicOff size={19} />}
@@ -642,7 +620,7 @@ function MeetingControls({
       <button
         disabled={!joined || busy}
         className={`control ${webcamOn ? "active" : ""}`}
-        title={joined ? "Camera" : "Joining meeting…"}
+        title="Camera"
         onClick={() => void action(() => toggleWebcam())}
       >
         {webcamOn ? <Camera size={19} /> : <CameraOff size={19} />}
@@ -651,7 +629,7 @@ function MeetingControls({
       <button
         disabled={!joined || busy}
         className={`control ${sharing ? "active" : ""}`}
-        title={joined ? "Share screen" : "Joining meeting…"}
+        title="Share screen"
         onClick={() =>
           void action(async () => {
             await enableScreenShare();
