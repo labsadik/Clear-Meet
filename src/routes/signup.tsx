@@ -1,0 +1,11 @@
+import { FormEvent, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+
+export const Route = createFileRoute("/signup")({ component: Signup });
+
+function Signup() {
+  const navigate=useNavigate(); const [name,setName]=useState(""); const [email,setEmail]=useState(""); const [password,setPassword]=useState(""); const [error,setError]=useState(""); const [busy,setBusy]=useState(false); const [sent,setSent]=useState(false);
+  const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setError("");const {data,error}=await supabase.auth.signUp({email,password,options:{data:{display_name:name.trim()||undefined}}});setBusy(false);if(error){setError(error.message);return;}if(data.session) navigate({to:"/dashboard"});else setSent(true);};
+  return <div className="center-page"><div className="card"><Link className="brand" to="/"><span className="logo">C</span>Clear Meet</Link><h1>Create your account</h1><p className="muted">One account for meetings, profiles and secure access.</p>{sent?<div className="success">Check your email to confirm your account, then sign in.</div>:<form className="form" onSubmit={submit}><div className="field"><label>Display name</label><input className="input" required maxLength={80} value={name} onChange={e=>setName(e.target.value)} /></div><div className="field"><label>Email</label><input className="input" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} /></div><div className="field"><label>Password</label><input className="input" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={e=>setPassword(e.target.value)} /></div>{error&&<div className="error">{error}</div>}<button className="button primary" disabled={busy}>{busy?"Creating…":"Create account"}</button></form>}<p className="muted" style={{textAlign:"center",fontSize:14}}>Already have an account? <Link to="/login" style={{color:"#2563eb",fontWeight:700}}>Sign in</Link></p></div></div>;
+}
