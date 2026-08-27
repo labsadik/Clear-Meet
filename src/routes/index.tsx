@@ -1,24 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowRight, Check, Lock, Video } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
-export const Route = createFileRoute("/")({
-  component: Index,
-});
+export const Route = createFileRoute("/")({ component: Landing });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
+function Landing() {
+  const { user } = useAuth();
+  return <div className="page"><header className="nav"><Link to="/" className="brand"><span className="logo"><Video size={18} /></span>Clear Meet</Link><nav className="nav-links"><a className="nav-link" href="#features">Features</a>{user ? <Link className="button primary" to="/dashboard">Open dashboard <ArrowRight size={16} /></Link> : <><Link className="nav-link" to="/login">Sign in</Link><Link className="button primary" to="/signup">Get started</Link></>}</nav></header><main className="hero"><div className="eyebrow">REAL VIDEO. REAL SECURITY.</div><h1>Meet clearly. Connect simply.</h1><p>A clean, light-first video meeting platform with real WebRTC media, Supabase authentication, and server-authorized meeting access.</p><div className="hero-actions">{user ? <Link className="button primary" to="/dashboard">Go to dashboard <ArrowRight size={17} /></Link> : <Link className="button primary" to="/signup">Create your account <ArrowRight size={17} /></Link>}<a className="button secondary" href="#features">Explore features</a></div></main><section id="features" className="features"><Feature icon={<Video size={18} />} title="Real video meetings" text="Powered by VideoSDK.live for camera, microphone and screen sharing — no fake participant tiles." /><Feature icon={<Lock size={18} />} title="Server-side security" text="Supabase Edge Functions authorize meeting actions and mint VideoSDK credentials without exposing secrets." /><Feature icon={<Check size={18} />} title="Waiting room" text="Guests request access and hosts admit or reject them with realtime state updates." /></section></div>;
 }
+function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) { return <article className="feature"><div className="icon-box">{icon}</div><h3>{title}</h3><p>{text}</p></article>; }
