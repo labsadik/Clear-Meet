@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowRight, LogOut, Plus, Video } from "lucide-react";
+import { ArrowRight, CalendarDays, LogOut, Plus, Trash2, Video } from "lucide-react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth-context";
-import { type Meeting } from "@/lib/api";
+import { invoke, type Meeting } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/dashboard")({ component: Dashboard });
@@ -15,6 +15,7 @@ function Dashboard() {
   const [slug, setSlug] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
@@ -43,7 +44,6 @@ function Dashboard() {
     setBusy(true);
     setError("");
     try {
-      const { invoke } = await import("@/lib/api");
       const result = await invoke<{ meeting: Meeting }>("create-meeting", { title: title.trim() });
       setMeetings((current) => [result.meeting, ...current]);
       setTitle("");
@@ -63,11 +63,26 @@ function Dashboard() {
     setBusy(true);
     setError("");
     try {
-      // The meeting route performs the single server-side admission/join check.
-      // Avoid making the same request here before navigating.
       void navigate({ to: "/meeting/$meetingSlug", params: { meetingSlug: value } });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const removeMeeting = async (meeting: Meeting) => {
+    if (!user || deletingId) return;
+    const confirmed = window.confirm(`Delete “${meeting.title}”? This permanently removes its history, messages, and participant records.`);
+    if (!confirmed) return;
+
+    setDeletingId(meeting.id);
+    setError("");
+    try {
+      await invoke<{ deleted: boolean }>("delete-meeting", { meetingId: meeting.id });
+      setMeetings((current) => current.filter((item) => item.id !== meeting.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete meeting");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -78,7 +93,7 @@ function Dashboard() {
   const avatar = profile?.avatar_url;
   const firstName = profile?.display_name?.split(" ")[0] || "there";
 
-  return <div className="page">
+  return <div className="page dashboard-page">
     <header className="nav dashboard-nav">
       <Link to="/" className="brand"><span className="logo"><Video size={18} /></span>Clear Meet</Link>
       <div className="nav-links">
@@ -100,11 +115,11 @@ function Dashboard() {
         <Link className="button secondary profile-shortcut" to="/profile">Edit profile</Link>
       </section>
 
-      {error && <div className="error" style={{ marginTop: 18 }}>{error}</div>}
+      {error && <div className="error dashboard-error">{error}</div>}
 
       <div className="dashboard-grid">
         <section className="meeting-card dashboard-create-card">
-          <div className="meeting-row">
+          <div className="meeting-row dashboard-card-heading">
             <div><div className="icon-box"><Plus size={18} /></div><h2 style={{ marginTop: 14 }}>Start a meeting</h2><p className="muted">Create a secure room with a shareable link.</p></div>
             <button className="button primary" onClick={() => setShowCreate((value) => !value)}><Plus size={17} />New meeting</button>
           </div>
@@ -114,7 +129,7 @@ function Dashboard() {
           </form>}
         </section>
 
-        <section className="meeting-card">
+        <section className="meeting-card dashboard-join-card">
           <div className="icon-box"><ArrowRight size={18} /></div>
           <h2 style={{ marginTop: 14 }}>Join a meeting</h2>
           <p className="muted">Paste the public meeting code or full meeting path.</p>
@@ -125,9 +140,9 @@ function Dashboard() {
         </section>
       </div>
 
-      <section style={{ marginTop: 30 }}>
-        <div className="meeting-row"><div><h2>Recent meetings</h2><p className="muted" style={{ margin: "5px 0 0" }}>Your rooms stay available here.</p></div><span className="badge">{meetings.length} total</span></div>
-        {meetings.length === 0 ? <div className="meeting-card dashboard-empty" style={{ marginTop: 14 }}><Video size={24} /><p className="muted">No meetings yet. Your first room will appear here.</p></div> : meetings.map((meeting) => <div className="meeting-card meeting-list-item" key={meeting.id}><div className="meeting-row"><div className="meeting-list-main"><div className="meeting-title">{meeting.title}</div><div className="meeting-meta">/meeting/{meeting.public_slug}</div></div><div className="actions" style={{ marginTop: 0 }}><span className="badge">{meeting.status}</span><Link className="button secondary" to="/meeting/$meetingSlug" params={{ meetingSlug: meeting.public_slug }}>Open <ArrowRight size={15} /></Link></div></div></div>)}
+      <section className="dashboard-history">
+        <div className="meeting-row"><div><h2>Meeting history</h2><p className="muted" style={{ margin: "5px 0 0" }}>Rooms you created. Only you can delete your meeting history.</p></div><span className="badge">{meetings.length} total</span></div>
+        {meetings.length === 0 ? <div className="meeting-card dashboard-empty" style={{ marginTop: 14 }}><CalendarDays size={24} /><div><strong>No meetings yet</strong><p className="muted">Your first room will appear here.</p></div></div> : meetings.map((meeting) => <article className="meeting-card meeting-list-item" key={meeting.id}><div className="meeting-row"><div className="meeting-list-main"><div className="meeting-title">{meeting.title}</div><div className="meeting-meta">/meeting/{meeting.public_slug} · Created by you</div></div><div className="meeting-history-actions"><span className={`badge ${meeting.status === "active" ? "badge-live" : ""}`}>{meeting.status}</span><Link className="button secondary" to="/meeting/$meetingSlug" params={{ meetingSlug: meeting.public_slug }}>Open <ArrowRight size={15} /></Link><button className="button danger ghost-danger" disabled={deletingId === meeting.id} title="Delete meeting" onClick={() => void removeMeeting(meeting)}>{deletingId === meeting.id ? "Deleting…" : <><Trash2 size={15} />Delete</>}</button></div></div></article>)}
       </section>
     </main>
   </div>;
