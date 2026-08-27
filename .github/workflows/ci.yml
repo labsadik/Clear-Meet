@@ -1,0 +1,22 @@
+name: Clear Meet CI
+
+on:
+  push:
+    branches: [main, repair/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.12.x"
+      - name: Install dependencies
+        run: npm install
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
