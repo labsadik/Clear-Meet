@@ -42,9 +42,7 @@ type MessageRow = {
   sender_id: string;
   message: string;
   created_at: string;
-  profiles?: {
-    display_name: string;
-  } | null;
+  profiles?: { display_name: string } | null;
 };
 
 type Props = {
@@ -57,14 +55,6 @@ type Props = {
   onLeave: () => Promise<void>;
 };
 
-/**
- * VideoSDK is isolated in this browser-only component.
- * The provider joins automatically exactly once after the user has
- * explicitly chosen "Join meeting" in the route.
- *
- * Media starts disabled. Camera/microphone are enabled only after the
- * room is JOINED, so device permissions never gate entry to the meeting.
- */
 export function VideoMeetingClient({
   token,
   meeting,
@@ -112,7 +102,11 @@ function MeetingSession({
   const [timedOut, setTimedOut] = useState(false);
   const initialDevicesApplied = useRef(false);
 
-  const { meetingState } = useMeeting({
+  const {
+    meetingState,
+    toggleMic,
+    toggleWebcam,
+  } = useMeeting({
     onMeetingJoined: () => {
       setJoinError("");
       setTimedOut(false);
@@ -134,9 +128,7 @@ function MeetingSession({
   const joined = meetingState === "JOINED";
 
   useEffect(() => {
-    if (joined || joinError) {
-      return;
-    }
+    if (joined || joinError) return;
 
     const timeout = window.setTimeout(() => {
       setTimedOut(true);
@@ -148,25 +140,18 @@ function MeetingSession({
     return () => window.clearTimeout(timeout);
   }, [joined, joinError]);
 
-  /**
-   * Apply the choices made on the pre-join screen only after VideoSDK has
-   * joined the room. A ref makes this idempotent across state updates.
-   */
   useEffect(() => {
     if (!joined || initialDevicesApplied.current) return;
 
     initialDevicesApplied.current = true;
 
-    const applyInitialDevices = async () => {
+    const enableInitialDevices = async () => {
       try {
         if (initialMicEnabled) {
-          await window.Promise.resolve(meetingState).then(() => undefined);
-          const { toggleMic } = useMeetingActions();
           await toggleMic();
         }
 
         if (initialWebcamEnabled) {
-          const { toggleWebcam } = useMeetingActions();
           await toggleWebcam();
         }
       } catch (error) {
@@ -174,12 +159,17 @@ function MeetingSession({
           "[VideoSDK] Could not enable selected pre-join devices:",
           error,
         );
-        initialDevicesApplied.current = false;
       }
     };
 
-    void applyInitialDevices();
-  }, [joined, initialMicEnabled, initialWebcamEnabled, meetingState]);
+    void enableInitialDevices();
+  }, [
+    joined,
+    initialMicEnabled,
+    initialWebcamEnabled,
+    toggleMic,
+    toggleWebcam,
+  ]);
 
   const load = async () => {
     const { data } = await supabase
@@ -225,11 +215,12 @@ function MeetingSession({
           table: "meeting_messages",
           filter: `meeting_id=eq.${meeting.id}`,
         },
-        (payload) =>
+        (payload) => {
           setChat((current) => [
             ...current,
             payload.new as MessageRow,
-          ]),
+          ]);
+        },
       )
       .subscribe();
 
@@ -252,9 +243,7 @@ function MeetingSession({
         message: value,
       });
 
-    if (error) {
-      console.error("[Meeting Chat] Failed to send:", error);
-    }
+    if (error) console.error("[Meeting Chat] Failed to send:", error);
   };
 
   const admit = async (id: string) => {
@@ -327,7 +316,7 @@ function MeetingSession({
             <p className="muted">
               {joinError || timedOut
                 ? joinError
-                : "You can join without camera or microphone access. Your selected devices are enabled only after the room is joined."}
+                : "You can join without camera or microphone access. The room is entered first; devices are enabled separately."}
             </p>
 
             <div className="actions" style={{ marginTop: 14 }}>
@@ -370,10 +359,7 @@ function MeetingSession({
         </a>
 
         <div className="actions" style={{ marginTop: 0 }}>
-          <button
-            className="button secondary"
-            onClick={copy}
-          >
+          <button className="button secondary" onClick={copy}>
             <Copy size={15} />
             {copied ? "Copied" : "Share"}
           </button>
@@ -397,8 +383,7 @@ function MeetingSession({
                 people.filter(
                   (person) => person.status === "admitted",
                 ).length
-              }{" "}
-              admitted
+              } admitted
             </span>
           </div>
 
@@ -494,15 +479,6 @@ function MeetingSession({
       />
     </div>
   );
-}
-
-/**
- * This helper is intentionally tiny: hooks must be consumed from a component
- * that is already inside MeetingProvider. Keeping all media commands here
- * ensures they never run before the SDK reports JOINED.
- */
-function useMeetingActions() {
-  return useMeeting();
 }
 
 function VideoStage() {
@@ -601,9 +577,7 @@ function ParticipantTile({
         />
       ) : (
         <div className="avatar-fallback">
-          {(displayName || "?")
-            .slice(0, 1)
-            .toUpperCase()}
+          {(displayName || "?").slice(0, 1).toUpperCase()}
         </div>
       )}
 
@@ -648,10 +622,7 @@ function MeetingControls({
     try {
       await Promise.resolve(fn());
     } catch (error) {
-      console.error(
-        "[VideoSDK] Media action failed:",
-        error,
-      );
+      console.error("[VideoSDK] Media action failed:", error);
     } finally {
       setBusy(false);
     }
@@ -674,11 +645,7 @@ function MeetingControls({
         title={joined ? "Camera" : "Joining meeting…"}
         onClick={() => void action(() => toggleWebcam())}
       >
-        {webcamOn ? (
-          <Camera size={19} />
-        ) : (
-          <CameraOff size={19} />
-        )}
+        {webcamOn ? <Camera size={19} /> : <CameraOff size={19} />}
       </button>
 
       <button
