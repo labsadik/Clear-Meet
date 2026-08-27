@@ -1,0 +1,1 @@
+Video meeting components are kept outside route files to prevent TanStack Router from treating them as routes.
