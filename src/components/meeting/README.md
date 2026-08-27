@@ -1,0 +1,1 @@
+Browser-only VideoSDK meeting client components. Keep VideoSDK runtime imports outside SSR route files.
