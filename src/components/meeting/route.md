@@ -1,0 +1,1 @@
+Meeting UI is intentionally browser-only because the VideoSDK React package accesses browser globals. The route should dynamically import the meeting client.
